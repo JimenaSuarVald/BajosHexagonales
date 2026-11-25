@@ -16,6 +16,10 @@ env/
 # (ids_policiales.json SÍ se versiona: es la lista oficial de IDs válidos.)
 src/models/usuarios.json
 src/models/locales.json
+# La base de datos se crea sola al arrancar, con los datos iniciales de los JSON.
+# No se versiona porque contiene las cuentas de los usuarios.
+src/models/*.db
+src/models/*.db-journal
 
 # --- IDE ---
 .idea/

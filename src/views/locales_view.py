@@ -1,11 +1,14 @@
-"""VISTA: lista de locales con los botones que permite cada rol.
+"""VISTA: lista de locales con su estado y los botones que permite cada rol.
 
 - Vecino:      solo ve la lista.
-- Propietario: ve la lista y tiene el botón "Editar" en SU local.
-- Autoridad:   ve la lista, puede crear ("Nuevo local"), editar y eliminar.
+- Propietario: ve la lista y tiene los botones "Editar" y "Ver sensores" en SU local.
+- Autoridad:   ve la lista, puede crear ("Nuevo local"), editar, eliminar y ver sensores.
 """
 # Flet es la librería que dibuja la interfaz gráfica.
 import flet as ft
+
+# Piezas que se repiten en varias pantallas.
+from src.views.piezas_sensores import cabecera, estado_bar
 
 
 class LocalesView:
@@ -30,6 +33,15 @@ class LocalesView:
                     on_click=lambda evento: self.app.ir_a_editar_local(local),
                 )
             )
+        # Botón "Ver sensores" si puede ver el detalle de este local.
+        if self.controller.puede_ver_sensores(self.usuario, local):
+            botones.append(
+                ft.TextButton(
+                    "Ver sensores",
+                    icon=ft.Icons.SENSORS,
+                    on_click=lambda evento: self.app.ir_a_bar(local),
+                )
+            )
         # Botón "Eliminar" si el usuario puede eliminar locales.
         if self.controller.puede_eliminar(self.usuario):
             botones.append(
@@ -47,13 +59,14 @@ class LocalesView:
                 padding=20,
                 content=ft.Column(
                     controls=[
+                        estado_bar(self.app, local.codigo),
                         ft.Text(local.nombre, size=18, weight=ft.FontWeight.BOLD),
                         ft.Text(f"Código: {local.codigo}"),
                         ft.Text(f"Tipo: {local.tipo}"),
                         ft.Text(f"Dirección: {local.direccion}"),
                         ft.Text(f"Aforo máximo: {local.aforo} personas"),
-                        # Row coloca los botones uno al lado del otro.
-                        ft.Row(controls=botones),
+                        # Row coloca los botones uno al lado del otro (o debajo si no caben).
+                        ft.Row(wrap=True, controls=botones),
                     ],
                 ),
             ),
@@ -108,8 +121,7 @@ class LocalesView:
             expand=True,
             scroll=ft.ScrollMode.AUTO,
             controls=[
-                ft.Row(controls=barra),
-                ft.Text("Locales de la zona", size=24, weight=ft.FontWeight.BOLD),
+                cabecera(self.app, "Locales de la zona", barra),
                 contenido,
             ],
         )

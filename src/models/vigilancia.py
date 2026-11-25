@@ -1,51 +1,89 @@
 """MODELO: datos de VIGILANCIA (incidencias, cierres y notificaciones).
 
-Son tres archivos JSON en src/models. Cada elemento es un diccionario:
+Son tres tablas de la base de datos (ver ESQUEMA en base_datos.py):
 
-incidencias.json  -> el LOG (registro) de incidencias de cada bar
-    {"local": "NEG-001", "fecha": "2026-11-13 21:30", "tipo": "Cierre temporal",
-     "autor": "Ayuntamiento Demo", "descripcion": "Texto que explica lo ocurrido"}
-
-cierres.json  -> los cierres temporales que ha hecho la policía
-    {"local": "NEG-001", "fecha": "2026-11-13 21:30", "policia": "Ayuntamiento Demo (POL-0001)",
-     "motivo": "Texto obligatorio que escribe la policía",
-     "activo": True,                    # True mientras el local siga cerrado
-     "reclamacion": "",                 # texto que escribe el propietario si reclama
-     "estado_reclamacion": "",          # "", "Pendiente", "Justificado" o "No justificado"
-     "respuesta": ""}                   # lo que contesta la policía a la reclamación
-
-notificaciones.json  -> avisos que ve cada usuario en su panel
-    {"para": "Autoridad", "fecha": "...", "titulo": "...", "mensaje": "...", "leida": False}
-    "para" vale "Autoridad" (lo ven todos los policías) o un código de local como
-    "NEG-001" (lo ve el propietario de ese local).
+    incidencias    -> el LOG (registro) de incidencias de cada bar
+    cierres        -> los cierres temporales que ha hecho la policía
+                      activo: 1 mientras el local siga cerrado
+                      estado_reclamacion: "", "Pendiente", "Justificado" o "No justificado"
+    notificaciones -> avisos que ve cada usuario en su panel
+                      local: el código del local (lo ve su propietario) o NULL
+                      (lo ven todos los policías)
 """
-# Las mismas funciones de leer/escribir JSON que usa el resto del proyecto.
-from src.models.archivo_json import escribir_json, leer_json
-
-ARCHIVO_INCIDENCIAS = "incidencias.json"
-ARCHIVO_CIERRES = "cierres.json"
-ARCHIVO_NOTIFICACIONES = "notificaciones.json"
+from src.models.base_datos import consultar, consultar_uno, ejecutar, insertar
 
 
-def cargar_incidencias():
-    return leer_json(ARCHIVO_INCIDENCIAS)
+# ----------------------------------------------------------------------
+# INCIDENCIAS
+# ----------------------------------------------------------------------
+def guardar_incidencia(codigo, fecha, tipo, autor, descripcion):
+    insertar(
+        "incidencias",
+        {"local": codigo, "fecha": fecha, "tipo": tipo, "autor": autor, "descripcion": descripcion},
+    )
 
 
-def guardar_incidencias(incidencias):
-    escribir_json(ARCHIVO_INCIDENCIAS, incidencias)
+def incidencias_de(codigo):
+    """Las de un local, de la más nueva a la más antigua."""
+    return consultar("SELECT * FROM incidencias WHERE local = ? ORDER BY id DESC", (codigo,))
 
 
-def cargar_cierres():
-    return leer_json(ARCHIVO_CIERRES)
+def ultimas_incidencias(tipo, cantidad):
+    """Las últimas de todos los locales. tipo="" significa todos los tipos."""
+    return consultar(
+        "SELECT * FROM incidencias WHERE ? IN ('', tipo) ORDER BY id DESC LIMIT ?", (tipo, cantidad)
+    )
 
 
-def guardar_cierres(cierres):
-    escribir_json(ARCHIVO_CIERRES, cierres)
+# ----------------------------------------------------------------------
+# CIERRES
+# ----------------------------------------------------------------------
+def guardar_cierre(codigo, fecha, policia, motivo):
+    insertar("cierres", {"local": codigo, "fecha": fecha, "policia": policia, "motivo": motivo})
 
 
-def cargar_notificaciones():
-    return leer_json(ARCHIVO_NOTIFICACIONES)
+def cierre_activo(codigo):
+    """El cierre que tiene ahora el local, o None si está abierto."""
+    return consultar_uno("SELECT * FROM cierres WHERE local = ? AND activo = 1", (codigo,))
 
 
-def guardar_notificaciones(notificaciones):
-    escribir_json(ARCHIVO_NOTIFICACIONES, notificaciones)
+def ultimo_cierre(codigo):
+    """El último cierre del local (activo o no), o None si nunca lo han cerrado."""
+    return consultar_uno("SELECT * FROM cierres WHERE local = ? ORDER BY id DESC LIMIT 1", (codigo,))
+
+
+def cierres_activos():
+    return consultar("SELECT * FROM cierres WHERE activo = 1 ORDER BY id")
+
+
+def cierres_con_reclamacion_pendiente(codigo=""):
+    """Los de un local, o los de todos si codigo=""."""
+    return consultar(
+        "SELECT * FROM cierres WHERE estado_reclamacion = 'Pendiente' AND ? IN ('', local) ORDER BY id", (codigo,)
+    )
+
+
+def actualizar_cierre(cierre):
+    """Guarda los cambios hechos en un cierre."""
+    ejecutar(
+        "UPDATE cierres SET activo = ?, reclamacion = ?, estado_reclamacion = ?, respuesta = ? WHERE id = ?",
+        (
+            cierre["activo"], cierre["reclamacion"], cierre["estado_reclamacion"], cierre["respuesta"], cierre["id"],
+        ),
+    )
+
+
+# ----------------------------------------------------------------------
+# NOTIFICACIONES (codigo=None son las de la Autoridad; "IS" también sirve para comparar con NULL)
+# ----------------------------------------------------------------------
+def guardar_notificacion(codigo, fecha, titulo, mensaje):
+    insertar("notificaciones", {"local": codigo, "fecha": fecha, "titulo": titulo, "mensaje": mensaje})
+
+
+def notificaciones_de(codigo):
+    """De la más nueva a la más antigua."""
+    return consultar("SELECT * FROM notificaciones WHERE local IS ? ORDER BY id DESC", (codigo,))
+
+
+def marcar_leidas(codigo):
+    ejecutar("UPDATE notificaciones SET leida = 1 WHERE local IS ?", (codigo,))

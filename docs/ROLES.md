@@ -10,13 +10,14 @@ registrarse** y **qué puede hacer** dentro de la aplicación.
 
 **Quién es:** una persona que vive en la zona de Argüelles.
 
-**Registro:** nombre, correo y contraseña. No necesita ningún código.
+**Registro:** nombre, correo, contraseña y su **calle** (por ejemplo `Calle Ferraz`). Puede cambiarla después desde su panel.
 
 **Qué puede hacer:**
 - Ver la lista de locales de la zona (nombre, tipo, dirección y aforo).
-- *(Sprint 3)* Consultar el ruido y el aforo de su calle.
+- Ver el semáforo de todos los locales.
+- Consultar el **ruido y el aforo** de los locales de su calle, con su gráfico.
 
-**Qué NO puede hacer:** crear, modificar ni eliminar locales.
+**Qué NO puede hacer:** crear, modificar ni eliminar locales; ver el resto de sensores ni las incidencias.
 
 ---
 
@@ -44,7 +45,9 @@ El registro solo se acepta si se cumplen estas condiciones:
 - **Editar los datos de SU local** (nombre, dirección, tipo y aforo). El código
   de negocio no se puede cambiar.
 
-**Qué NO puede hacer:** crear locales, eliminarlos, ni editar locales de otros.
+- Ver los **5 sensores, gráficos e incidencias de SU local** y reclamar sus cierres.
+
+**Qué NO puede hacer:** crear locales, eliminarlos, editar locales de otros ni ver sus sensores (de los demás solo ve el semáforo).
 
 ---
 
@@ -61,19 +64,22 @@ El registro solo se acepta si se cumplen estas condiciones:
 | Comprobación | Mensaje si falla |
 |---|---|
 | Ha escrito un ID | "La autoridad debe introducir su ID de identificación policial." |
-| El ID está en la lista oficial `src/models/ids_policiales.json` | "Ese ID policial no es válido." |
+| El ID está en la lista oficial (tabla `ids_policiales`) | "Ese ID policial no es válido." |
 | Ese ID no lo usa ya otra cuenta | "Ese ID policial ya está registrado." |
 
 > **Lista oficial de IDs.** En este prototipo es el archivo
-> `src/models/ids_policiales.json`. Para autorizar a un agente nuevo basta con
-> añadir su ID a esa lista. En una versión real se consultaría un registro oficial.
+> la tabla `ids_policiales` de la base de datos (sus datos iniciales están en
+> `src/models/ids_policiales.json`). Para autorizar a un agente nuevo basta con
+> añadir su ID a esa tabla. En una versión real se consultaría un registro oficial.
 
 **Qué puede hacer (gestión completa de locales, CRUD):**
 - **Crear** locales nuevos (y con ello su código de negocio).
 - **Ver** todos los locales.
 - **Modificar** cualquier local.
 - **Eliminar** cualquier local (pide confirmación antes).
-- *(Sprint 3)* Supervisar los sensores de toda la zona.
+- **Supervisar los sensores de toda la zona**: resumen, comparación, alertas e incidencias.
+- Cerrar y reabrir locales, y resolver reclamaciones.
+- Usar el simulador de pruebas.
 
 ---
 
@@ -85,12 +91,17 @@ El registro solo se acepta si se cumplen estas condiciones:
 | Crear | ❌ | ❌ | ✅ |
 | Modificar | ❌ | Solo el suyo | ✅ Todos |
 | Eliminar | ❌ | ❌ | ✅ |
+| Ver el semáforo | ✅ | ✅ | ✅ |
+| Ver sensores e incidencias | Solo ruido y aforo de su calle | Solo los de su local | ✅ Todos |
+| Cerrar y reabrir | ❌ | ❌ | ✅ |
+| Reclamar un cierre | ❌ | Solo el suyo | ❌ |
+| Usar el simulador | ❌ | ❌ | ✅ |
 
 ## Dato que guarda cada rol
 
-| Rol | Campo especial en `usuarios.json` | Ejemplo |
+| Rol | Campo especial en la tabla `usuarios` | Ejemplo |
 |---|---|---|
-| Vecino | — (ambos vacíos) | |
+| Vecino | `calle` | `"Calle Ferraz"` |
 | Propietario | `codigo_negocio` | `"NEG-001"` |
 | Autoridad | `id_policial` | `"POL-0001"` |
 
@@ -100,7 +111,7 @@ El registro solo se acepta si se cumplen estas condiciones:
 |---|---|---|
 | Lista de roles | `src/models/usuario.py` | `ROLES` |
 | Comprobaciones del registro por rol | `src/controllers/login_controller.py` | `registrar()` |
-| Permisos sobre locales | `src/controllers/local_controller.py` | `puede_crear()`, `puede_editar()`, `puede_eliminar()` |
+| Permisos sobre locales | `src/controllers/local_controller.py` | `puede_crear()`, `puede_editar()`, `puede_eliminar()`, `puede_ver_sensores()` |
 | Campo que aparece según el rol | `src/views/register_view.py` | `cambiar_rol()` |
 | Botones que ve cada rol | `src/views/locales_view.py` | `tarjeta()`, `construir()` |
 
@@ -110,7 +121,7 @@ Se crean solos la primera vez que se abre la aplicación (contraseña `1234`):
 
 | Rol | Correo | Código |
 |---|---|---|
-| Vecino | `vecino@arguelles.es` | — |
+| Vecino | `vecino@arguelles.es` | Calle `Calle Ferraz` |
 | Propietario | `bar@arguelles.es` | Negocio `NEG-001` (local "Bar Demo") |
 | Autoridad | `ayto@arguelles.es` | ID policial `POL-0001` |
 

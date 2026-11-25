@@ -33,7 +33,22 @@ Rama principal de desarrollo e integración del proyecto. Todas las nuevas funci
 
 ## Sprint Actual
 
-**Sprint 3**
+**Sprint 3: dashboards por rol**
+
+- Panel propio para Vecino, Propietario y Autoridad, con gráficos.
+- Sensores de ruido y aforo.
+- Base de datos SQLite con el historial previo de los sensores.
+- Datos manejados con listas de nodos enlazados.
+
+### Cómo ejecutarlo
+
+```bash
+python -m pip install -r requirements.txt
+python main.py
+python -m unittest tests.pruebas   # pruebas automáticas
+```
+
+Usuarios de prueba: `usuarios_prueba.txt`. Documentación: carpeta `docs`.
 
 
 ---
@@ -42,7 +57,7 @@ Rama principal de desarrollo e integración del proyecto. Todas las nuevas funci
 
 - Python 3
 - [Flet](https://flet.dev/) (interfaz gráfica responsive)
-- Almacenamiento local en JSON
+- Base de datos SQLite (datos iniciales en JSON)
 - Arquitectura Modelo-Vista-Controlador (MVC)
 - Git y GitHub
 - Metodología Scrum

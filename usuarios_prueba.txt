@@ -1,4 +1,4 @@
-USUARIOS DE PRUEBA - Bajos de Argüelles (Sprint 2)
+USUARIOS DE PRUEBA - Bajos de Argüelles (Sprint 3)
 =====================================================
 
 Cuentas creadas automáticamente al abrir la aplicación por primera vez.
@@ -9,8 +9,9 @@ Todas usan la contraseña: 1234
    Nombre:          Vecino Demo
    Correo:          vecino@arguelles.es
    Contraseña:      1234
-   Código especial: (ninguno)
-   Puede:           ver la lista de locales.
+   Calle:           Calle Ferraz (las cuentas creadas antes del Sprint 3 la
+                    indican con el botón "Cambiar mi calle")
+   Puede:           ver el semáforo de la zona y el ruido y aforo de su calle.
 
 
 2. PROPIETARIO
@@ -18,7 +19,7 @@ Todas usan la contraseña: 1234
    Correo:            bar@arguelles.es
    Contraseña:        1234
    Código de negocio: NEG-001  (local "Bar Demo", Calle Ferraz 10)
-   Puede:             ver los locales y editar solo el suyo (NEG-001).
+   Puede:             ver y editar los datos y sensores de su local (NEG-001), y reclamar cierres.
 
 
 3. AUTORIDAD
@@ -26,7 +27,7 @@ Todas usan la contraseña: 1234
    Correo:      ayto@arguelles.es
    Contraseña:  1234
    ID policial: POL-0001
-   Puede:       crear, editar y eliminar cualquier local.
+   Puede:       gestionar los locales, ver todos los sensores, cerrar bares y resolver reclamaciones.
 
 
 -----------------------------------------------------

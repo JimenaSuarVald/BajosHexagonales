@@ -10,8 +10,18 @@ Antes de cambiar nada se comprueba que el usuario tiene permiso según su rol
 (ver docs/ROLES.md). crear() y modificar() devuelven dos cosas: el local
 (None si algo ha fallado) y un mensaje de error. eliminar() devuelve solo el mensaje.
 """
-# Traemos del modelo el molde Local y las funciones que leen/escriben locales.json.
-from src.models.local import Local, cargar_locales, guardar_locales
+# Traemos del modelo el molde Local y las funciones que leen/escriben en la base de datos.
+from src.models.local import (
+    Local,
+    actualizar_local,
+    borrar_local,
+    buscar_local,
+    cargar_locales,
+    insertar_local,
+)
+
+# Para dar sensores a un local nuevo.
+from src.controllers.sensor_controller import preparar_sensores
 
 
 class LocalController:
@@ -19,7 +29,7 @@ class LocalController:
         # La primera vez que se abre la aplicación (no hay locales) crea uno de prueba.
         # Su código "NEG-001" es el que usa el propietario de prueba bar@arguelles.es.
         if not cargar_locales():
-            guardar_locales([Local("NEG-001", "Bar Demo", "Calle Ferraz 10", "Bar", 80)])
+            insertar_local(Local("NEG-001", "Bar Demo", "Calle Ferraz 10", "Bar", 80))
 
     # ------------------------------------------------------------------
     # PERMISOS: qué puede hacer cada rol con los locales
@@ -44,6 +54,11 @@ class LocalController:
         # Nadie más (por ejemplo, los Vecinos) puede editar.
         return False
 
+    def puede_ver_sensores(self, usuario, local):
+        """Detalle de los sensores: la Autoridad, de todos; el Propietario, solo del suyo."""
+        # Es la misma regla que para editar, así que la reutilizamos.
+        return self.puede_editar(usuario, local)
+
     # ------------------------------------------------------------------
     # R = LEER
     # ------------------------------------------------------------------
@@ -53,13 +68,18 @@ class LocalController:
 
     def buscar(self, codigo):
         """Devuelve el local con ese código de negocio, o None si no existe."""
-        # Recorremos todos los locales guardados.
-        for local in cargar_locales():
-            # Si el código coincide, lo devolvemos.
-            if local.codigo == codigo:
-                return local
-        # No se ha encontrado.
-        return None
+        return buscar_local(codigo)
+
+    def nombre_de(self, codigo):
+        """Nombre del local a partir de su código (o el código si ya no existe)."""
+        local = self.buscar(codigo)
+        if local is None:
+            return codigo
+        return local.nombre
+
+    def de_calle(self, calle):
+        """Devuelve los locales que están en esa calle."""
+        return cargar_locales().filtrar(lambda local: local.esta_en(calle))
 
     def validar(self, nombre, direccion, tipo, aforo):
         """Revisa los datos del formulario. Devuelve "" si todo está bien o el error."""
@@ -100,11 +120,11 @@ class LocalController:
             return None, error
         # 5. Creamos el local (el aforo se guarda como número con int()).
         local = Local(codigo, nombre, direccion, tipo, int(aforo))
-        # 6. Lo añadimos a la lista y guardamos el archivo.
-        locales = cargar_locales()
-        locales.append(local)
-        guardar_locales(locales)
-        # 7. Devolvemos el local creado y ningún error.
+        # 6. Lo guardamos en la base de datos.
+        insertar_local(local)
+        # 7. Le damos sus sensores.
+        preparar_sensores()
+        # 8. Devolvemos el local creado y ningún error.
         return local, ""
 
     # ------------------------------------------------------------------
@@ -116,28 +136,25 @@ class LocalController:
         nombre = nombre.strip()
         direccion = direccion.strip()
         aforo = aforo.strip()
-        # Leemos todos los locales.
-        locales = cargar_locales()
-        # Buscamos el que tiene ese código.
-        for local in locales:
-            if local.codigo == codigo:
-                # Permiso: Autoridad o el Propietario de ese local.
-                if not self.puede_editar(usuario, local):
-                    return None, "No tienes permiso para modificar este local."
-                # Revisamos los datos nuevos.
-                error = self.validar(nombre, direccion, tipo, aforo)
-                if error:
-                    return None, error
-                # Sustituimos los datos antiguos por los nuevos.
-                local.nombre = nombre
-                local.direccion = direccion
-                local.tipo = tipo
-                local.aforo = int(aforo)
-                # Guardamos la lista completa (con el local ya cambiado).
-                guardar_locales(locales)
-                return local, ""
-        # Si el bucle termina sin encontrarlo, es que alguien lo ha borrado.
-        return None, "Este local ya no existe."
+        # Buscamos el local que tiene ese código.
+        local = self.buscar(codigo)
+        if local is None:
+            # Es que alguien lo ha borrado.
+            return None, "Este local ya no existe."
+        # Permiso: Autoridad o el Propietario de ese local.
+        if not self.puede_editar(usuario, local):
+            return None, "No tienes permiso para modificar este local."
+        # Revisamos los datos nuevos.
+        error = self.validar(nombre, direccion, tipo, aforo)
+        if error:
+            return None, error
+        # Sustituimos los datos antiguos por los nuevos y los guardamos.
+        local.nombre = nombre
+        local.direccion = direccion
+        local.tipo = tipo
+        local.aforo = int(aforo)
+        actualizar_local(local)
+        return local, ""
 
     # ------------------------------------------------------------------
     # D = BORRAR
@@ -147,13 +164,7 @@ class LocalController:
         # Permiso.
         if not self.puede_eliminar(usuario):
             return "Solo la Autoridad puede eliminar locales."
-        # Creamos una lista nueva con todos los locales MENOS el que se borra.
-        restantes = []
-        for local in cargar_locales():
-            # "!=" significa "distinto de".
-            if local.codigo != codigo:
-                restantes.append(local)
-        # Guardamos la lista sin ese local.
-        guardar_locales(restantes)
+        # Lo borramos (con sus sensores, medidas, incidencias, cierres y avisos).
+        borrar_local(codigo)
         # Sin errores.
         return ""

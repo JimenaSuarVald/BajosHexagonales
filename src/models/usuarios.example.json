@@ -5,7 +5,8 @@
     "rol": "Vecino",
     "password_hash": "<sha256(contraseña)>",
     "codigo_negocio": "",
-    "id_policial": ""
+    "id_policial": "",
+    "calle": "Calle Ferraz"
   },
   {
     "nombre": "Bar Demo",

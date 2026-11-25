@@ -1,12 +1,14 @@
-"""MODELO: define qué es un local (bar, restaurante...) y cómo se guarda en locales.json."""
-# Traemos las dos funciones que leen y escriben archivos JSON (ver archivo_json.py).
-from src.models.archivo_json import escribir_json, leer_json
+"""MODELO: define qué es un local (bar, restaurante...) y cómo se guarda en la base de datos (tabla locales)."""
+# "re" busca patrones en textos y "unicodedata" permite quitar las tildes. Vienen con Python.
+import re
+import unicodedata
+
+# Traemos las funciones de la base de datos (ver base_datos.py).
+from src.models.base_datos import consultar, consultar_uno, ejecutar, insertar
+from src.models.lista_enlazada import ListaEnlazada
 
 # Tipos de local que se pueden elegir en el formulario.
 TIPOS_LOCAL = ["Bar", "Restaurante", "Discoteca", "Otro"]
-
-# Nombre del archivo donde se guardan los locales.
-ARCHIVO_LOCALES = "locales.json"
 
 
 # Molde que describe los datos de cada local.
@@ -25,36 +27,59 @@ class Local:
         # Número máximo de personas permitidas dentro (un número entero).
         self.aforo = aforo
 
-    def a_diccionario(self):
-        """Convierte el local en el formato que se guarda en el JSON."""
-        return {
-            "codigo": self.codigo,
-            "nombre": self.nombre,
-            "direccion": self.direccion,
-            "tipo": self.tipo,
-            "aforo": self.aforo,
-        }
+    def esta_en(self, calle):
+        """True si el local está en esa calle (no importan mayúsculas, tildes ni "Calle" o "C/")."""
+        return bool(calle) and simplificar_calle(self.direccion) == simplificar_calle(calle)
+
+
+def simplificar_calle(texto):
+    """Deja solo el nombre de la calle: "C/ Martín de los Heros, nº 3" -> "martin de los heros"."""
+    # NFD separa cada letra de su tilde; "Mn" son las tildes, que no copiamos.
+    sin_tildes = ""
+    for letra in unicodedata.normalize("NFD", texto.lower().strip()):
+        if unicodedata.category(letra) != "Mn":
+            sin_tildes = sin_tildes + letra
+    # Quita "calle", "c/" o "c." del principio.
+    nombre = re.sub(r"^(calle\b|c/|c\.)\s*", "", sin_tildes)
+    # Quita el número del portal y lo que venga detrás (", nº 3", " 10", " 10 bajo B").
+    nombre = re.sub(r"[\s,]+(n[ºo°.]*\s*)?\d.*$", "", nombre)
+    return nombre.strip(" ,.")
+
+
+def crear_desde_fila(fila):
+    """Convierte una fila de la tabla en un objeto Local."""
+    return Local(fila["codigo"], fila["nombre"], fila["direccion"], fila["tipo"], fila["aforo"])
 
 
 def cargar_locales():
-    """Lee locales.json y devuelve la lista de locales (vacía si aún no existe)."""
-    # Lista vacía que iremos llenando.
-    locales = []
-    # Recorremos cada local guardado (cada "d" es un diccionario).
-    for d in leer_json(ARCHIVO_LOCALES):
-        # Creamos un objeto Local con sus datos y lo añadimos a la lista.
-        locales.append(Local(d["codigo"], d["nombre"], d["direccion"], d["tipo"], d["aforo"]))
-    # Devolvemos la lista completa.
+    """Devuelve la lista de todos los locales."""
+    locales = ListaEnlazada()
+    for fila in consultar("SELECT * FROM locales ORDER BY rowid"):
+        locales.append(crear_desde_fila(fila))
     return locales
 
 
-def guardar_locales(locales):
-    """Escribe la lista completa de locales en locales.json."""
-    # Lista vacía para los locales convertidos en diccionario.
-    datos = []
-    # Recorremos los locales uno a uno.
-    for local in locales:
-        # Lo convertimos a diccionario y lo añadimos.
-        datos.append(local.a_diccionario())
-    # Guardamos todo en el archivo.
-    escribir_json(ARCHIVO_LOCALES, datos)
+def buscar_local(codigo):
+    """El local con ese código, o None si no existe."""
+    fila = consultar_uno("SELECT * FROM locales WHERE codigo = ?", (codigo,))
+    if fila is None:
+        return None
+    return crear_desde_fila(fila)
+
+
+def insertar_local(local):
+    """Guarda un local nuevo. vars() da sus datos como diccionario."""
+    insertar("locales", vars(local))
+
+
+def actualizar_local(local):
+    """Guarda los cambios de un local."""
+    ejecutar(
+        "UPDATE locales SET nombre = ?, direccion = ?, tipo = ?, aforo = ? WHERE codigo = ?",
+        (local.nombre, local.direccion, local.tipo, local.aforo, local.codigo),
+    )
+
+
+def borrar_local(codigo):
+    """Borra un local. Por ON DELETE CASCADE se borran también sus datos en las demás tablas."""
+    ejecutar("DELETE FROM locales WHERE codigo = ?", (codigo,))

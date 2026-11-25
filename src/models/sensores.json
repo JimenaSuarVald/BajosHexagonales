@@ -16,5 +16,17 @@
     "tipo": "calidad_aire",
     "valor": 500,
     "fecha": "2026-11-13 17:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 61.7,
+    "fecha": "2026-11-13 17:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 52,
+    "fecha": "2026-11-13 17:51"
   }
 ]

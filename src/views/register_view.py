@@ -29,27 +29,27 @@ class RegisterView:
             label="Rol", width=320, options=opciones, on_select=self.cambiar_rol
         )
 
-        # Caja para el código especial del rol. Empieza oculta (visible=False)
-        # y solo aparece para Propietario (código de negocio) o Autoridad (ID policial).
+        # Caja para el dato especial del rol: calle (Vecino), código de negocio
+        # (Propietario) o ID policial (Autoridad). Empieza oculta hasta elegir rol.
         self.codigo = ft.TextField(width=320, visible=False)
 
         # Texto rojo para los errores.
         self.mensaje = ft.Text("", color=ft.Colors.RED)
 
     def cambiar_rol(self, evento):
-        """Muestra u oculta la caja del código según el rol elegido."""
+        """Muestra la caja del dato especial según el rol elegido."""
         # Propietario: debe escribir el código de negocio de su local.
         if self.rol.value == "Propietario":
             self.codigo.label = "Código de negocio (ej. NEG-001)"
-            self.codigo.visible = True
         # Autoridad: debe escribir su ID de identificación policial.
         elif self.rol.value == "Autoridad":
             self.codigo.label = "ID de identificación policial (ej. POL-0001)"
-            self.codigo.visible = True
-        # Vecino: no necesita código; ocultamos la caja y la vaciamos.
+        # Vecino: debe escribir su calle.
         else:
-            self.codigo.visible = False
-            self.codigo.value = ""
+            self.codigo.label = "Calle donde vives (ej. Calle Ferraz)"
+        # Enseñamos la caja vacía, por si tenía el dato de otro rol.
+        self.codigo.visible = True
+        self.codigo.value = ""
         # Refrescamos la pantalla para que se vea el cambio.
         self.app.page.update()
 

@@ -1,23 +1,64 @@
-"""VISTA: panel principal (dashboard) con los sensores de TODOS los bares.
+"""VISTA: panel principal (dashboard). Lo que se ve depende del rol:
 
-Sustituye a la pantalla principal (MainView) cuando se usa AppSensores.
-Lo que se ve depende del rol:
-
-    Todos          -> notificaciones (si tienen) y la lista de bares con su
-                      semáforo, sus valores, sus LEDs y el ventilador.
-    Autoridad      -> además: alertas de niveles peligrosos (con el botón para
-                      cerrar el bar), reclamaciones pendientes y bares cerrados.
-    Propietario    -> además: el estado de SU bar y, si está cerrado, el motivo
-                      y el botón para presentar una reclamación.
+    Vecino       -> ruido y aforo de los bares de SU calle.
+    Propietario  -> notificaciones, estado de SU local (con la opción de reclamar
+                    un cierre), sus sensores y su log de incidencias.
+    Autoridad    -> resumen de la zona, notificaciones, alertas, reclamaciones,
+                    bares cerrados, comparación de bares y log de toda la zona.
+    Todos        -> la lista de bares con su semáforo, del más al menos peligroso.
 """
 # Flet es la librería que dibuja la interfaz gráfica.
 import flet as ft
 
-# Textos de la pantalla principal original (para no repetirlos).
-from src.views.main_view import DESCRIPCION_ROL, TEXTO_BOTON_LOCALES
+# Colores del semáforo, del mejor al peor.
+from src.controllers.sensor_controller import COLORES
+from src.controllers.vigilancia_controller import TIPOS_INCIDENCIA
+
+# Nombres y unidades de los sensores.
+from src.models.sensor import NOMBRE_SENSOR, TIPOS_SENSOR, TIPOS_VECINO, UNIDAD_SENSOR
 
 # Piezas que se repiten en varias pantallas.
-from src.views.piezas_sensores import etiqueta_cerrado, icono_semaforo, led, ventana_texto
+from src.views.piezas_sensores import (
+    SIGNIFICADO,
+    cabecera,
+    estado_bar,
+    etiqueta_cerrado,
+    fila_leds,
+    grafico_barras,
+    icono_semaforo,
+    pedir_cierre,
+    pedir_reapertura,
+    seccion,
+    tabla_incidencias,
+    tarjeta_sensor,
+    ventana_texto,
+)
+
+# Frase que explica a cada rol qué puede hacer.
+DESCRIPCION_ROL = {
+    "Vecino": "Puedes consultar el ruido y el aforo de los bares de tu calle y el estado de la zona.",
+    "Propietario": "Puedes ver los sensores de tu local y mantener actualizados sus datos.",
+    "Autoridad": "Puedes gestionar los locales y supervisar los sensores de toda la zona.",
+}
+
+# Texto del botón que lleva a la pantalla de locales, distinto para cada rol.
+TEXTO_BOTON_LOCALES = {
+    "Vecino": "Ver locales de la zona",
+    "Propietario": "Ver locales y editar el mío",
+    "Autoridad": "Gestionar locales",
+}
+
+# Cuántas notificaciones e incidencias se enseñan como máximo.
+MAXIMO_AVISOS = 8
+MAXIMO_INCIDENCIAS = 15
+
+
+def desplegable(titulo, opciones, elegida, al_elegir):
+    """Desplegable. "opciones" es un diccionario {valor: texto que se ve}."""
+    lista = []
+    for valor in opciones:
+        lista.append(ft.DropdownOption(key=valor, text=opciones[valor]))
+    return ft.Dropdown(label=titulo, width=240, options=lista, value=elegida, on_select=al_elegir)
 
 
 class PanelSensoresView:
@@ -27,214 +68,140 @@ class PanelSensoresView:
         # Atajos para no escribir "self.app." todo el rato.
         self.sensores = app.sensor_controller
         self.vigilancia = app.vigilancia_controller
+        self.locales = app.local_controller
 
     # ------------------------------------------------------------------
-    # PIEZAS
+    # PARA TODOS
     # ------------------------------------------------------------------
-    def seccion(self, titulo, controles, icono=None):
-        """Tarjeta con un título y lo que se le pase dentro."""
-        cabecera = [ft.Text(titulo, size=18, weight=ft.FontWeight.BOLD)]
-        if icono:
-            cabecera.insert(0, ft.Icon(icono))
-        return ft.Card(
-            content=ft.Container(
-                padding=20,
-                content=ft.Column(controls=[ft.Row(controls=cabecera)] + controles),
-            )
-        )
-
     def tarjeta_bar(self, local):
-        """Tarjeta pequeña de un bar con su estado y sus medidas actuales."""
-        codigo = local.codigo
-        leds = self.sensores.leds(codigo)
-        # Texto del ventilador.
-        if self.sensores.ventilador(codigo):
-            ventilador = ft.Text("Ventilador ENCENDIDO", color=ft.Colors.CYAN_700, weight=ft.FontWeight.BOLD)
-        else:
-            ventilador = ft.Text("Ventilador apagado", color=ft.Colors.GREY)
-
+        """Tarjeta pequeña de un bar. Los sensores solo salen si el usuario puede verlos."""
         controles = [
-            ft.Row(
-                controls=[
-                    icono_semaforo(self.sensores.color_bar(codigo)),
-                    ft.Text(local.nombre, size=18, weight=ft.FontWeight.BOLD),
-                ]
-            ),
-            ft.Text(f"{codigo} · {local.direccion}", size=12),
+            ft.Text(local.nombre, size=18, weight=ft.FontWeight.BOLD),
+            ft.Text(f"{local.codigo} · {local.direccion}", size=12),
+            estado_bar(self.app, local.codigo),
         ]
-        # Si la policía lo ha cerrado, se pone el cartel.
-        if self.vigilancia.cierre_activo(codigo):
-            controles.append(etiqueta_cerrado())
-        controles = controles + [
-            ft.Text(f"Temperatura: {self.sensores.valor(codigo, 'temperatura')} °C"),
-            ft.Text(f"Humedad: {self.sensores.valor(codigo, 'humedad')} %"),
-            ft.Text(
-                f"Aire: {self.sensores.valor(codigo, 'calidad_aire')} ppm "
-                f"({self.sensores.calidad_aire(self.sensores.valor(codigo, 'calidad_aire'))})"
-            ),
-            ft.Row(
-                controls=[
-                    led("rojo", leds["rojo"], 18),
-                    led("azul", leds["azul"], 18),
-                    led("verde", leds["verde"], 18),
-                    ventilador,
-                ]
-            ),
-            ft.TextButton(
-                "Ver sensores e incidencias",
-                icon=ft.Icons.SENSORS,
-                # Al pulsar se abre la pantalla de detalle de ESTE bar.
-                on_click=lambda evento: self.app.ir_a_bar(local),
-            ),
-        ]
+        if self.locales.puede_ver_sensores(self.usuario, local):
+            controles = controles + [
+                ft.Text(self.sensores.texto_valores(local.codigo), size=13),
+                fila_leds(self.app, local.codigo, 18),
+                ft.TextButton(
+                    "Ver sensores e incidencias",
+                    icon=ft.Icons.SENSORS,
+                    # Al pulsar se abre la pantalla de detalle de ESTE bar.
+                    on_click=lambda evento: self.app.ir_a_bar(local),
+                ),
+            ]
         return ft.Card(
             # 1 tarjeta por fila en móvil, 2 en tablet, 3 en pantalla grande.
             col={"xs": 12, "sm": 6, "lg": 4},
             content=ft.Container(padding=16, content=ft.Column(controls=controles)),
         )
 
-    def nombre_local(self, codigo):
-        """Nombre del local a partir de su código (o el código si ya no existe)."""
-        local = self.app.local_controller.buscar(codigo)
-        if local:
-            return local.nombre
-        return codigo
+    def bares_ordenados(self):
+        """Los bares del más peligroso al menos peligroso."""
+        # sorted() ordena según lo que devuelve "key" (la posición del color); reverse=True, de mayor a menor.
+        return sorted(
+            self.locales.listar(),
+            key=lambda local: COLORES.index(self.sensores.color_bar(local.codigo)),
+            reverse=True,
+        )
 
-    # ------------------------------------------------------------------
-    # SECCIONES
-    # ------------------------------------------------------------------
+    def filtrar_bares(self, evento=None):
+        """Vuelve a llenar la lista de bares según el buscador y el filtro de estado."""
+        texto = (self.buscador.value or "").lower()
+        tarjetas = []
+        for local in self.bares_ordenados():
+            coincide = texto in local.nombre.lower() or texto in local.codigo.lower()
+            if self.estado.value == "cerrado":
+                del_estado = self.vigilancia.cierre_activo(local.codigo) is not None
+            else:
+                del_estado = self.estado.value in ("todos", self.sensores.color_bar(local.codigo))
+            if coincide and del_estado:
+                tarjetas.append(self.tarjeta_bar(local))
+        if not tarjetas:
+            tarjetas.append(ft.Text("No hay ningún local que mostrar."))
+        self.lista_bares.controls = tarjetas
+        # Si viene de un evento (alguien ha escrito o elegido algo), refrescamos la pantalla.
+        if evento:
+            self.app.page.update()
+
+    def seccion_bares(self):
+        """Todos los bares de la zona con su semáforo, con buscador y filtro."""
+        self.buscador = ft.TextField(label="Nombre o código", width=240, on_change=self.filtrar_bares)
+        # Opciones del filtro: todos + los 3 colores + cerrados.
+        opciones = {"todos": "Todos"}
+        for color in COLORES:
+            opciones[color] = SIGNIFICADO[color]
+        opciones["cerrado"] = "Cerrados"
+        self.estado = desplegable("Estado", opciones, "todos", self.filtrar_bares)
+        self.lista_bares = ft.ResponsiveRow()
+        self.filtrar_bares()
+        return ft.Column(
+            controls=[
+                ft.Text("Bares de la zona", size=20, weight=ft.FontWeight.BOLD),
+                ft.Row(wrap=True, controls=[self.buscador, self.estado]),
+                self.lista_bares,
+            ]
+        )
+
     def seccion_notificaciones(self):
-        """Avisos del usuario (los no leídos salen en negrita)."""
+        """(Propietario y Autoridad) Avisos del usuario; los no leídos salen en negrita."""
         avisos = self.vigilancia.notificaciones_de(self.usuario)
+        sin_leer = self.vigilancia.sin_leer(self.usuario)
         controles = []
         if not avisos:
             controles.append(ft.Text("No tienes notificaciones."))
         # avisos[:8] son los 8 primeros (los más nuevos).
-        for aviso in avisos[:8]:
-            if aviso["leida"]:
-                grosor = ft.FontWeight.NORMAL
-            else:
-                grosor = ft.FontWeight.BOLD
-            controles.append(
-                ft.Column(
-                    spacing=2,
-                    controls=[
-                        ft.Text(f"{aviso['fecha']} · {aviso['titulo']}", weight=grosor),
-                        ft.Text(aviso["mensaje"], size=13),
-                    ],
-                )
-            )
-        if self.vigilancia.sin_leer(self.usuario) > 0:
+        for aviso in avisos[:MAXIMO_AVISOS]:
+            grosor = ft.FontWeight.NORMAL if aviso["leida"] else ft.FontWeight.BOLD
+            controles.append(ft.Text(f"{aviso['fecha']} · {aviso['titulo']}", weight=grosor))
+            controles.append(ft.Text(aviso["mensaje"], size=13))
+        if sin_leer > 0:
             controles.append(ft.TextButton("Marcar como leídas", icon=ft.Icons.DONE_ALL, on_click=self.marcar_leidas))
-        titulo = f"Notificaciones ({self.vigilancia.sin_leer(self.usuario)} sin leer)"
-        return self.seccion(titulo, controles, ft.Icons.NOTIFICATIONS)
+        return seccion(f"Notificaciones ({sin_leer} sin leer)", controles, ft.Icons.NOTIFICATIONS)
 
-    def fila_alerta(self, local):
-        """(Autoridad) Una línea de alerta: bar en rojo + botón para cerrarlo."""
-        codigo = local.codigo
-        return ft.Row(
-            wrap=True,
-            controls=[
-                icono_semaforo("rojo"),
-                ft.Text(f"{local.nombre} ({codigo})", weight=ft.FontWeight.BOLD),
-                ft.Text(
-                    f"{self.sensores.valor(codigo, 'temperatura')} °C · "
-                    f"{self.sensores.valor(codigo, 'humedad')} % · "
-                    f"{self.sensores.valor(codigo, 'calidad_aire')} ppm"
-                ),
-                ft.FilledButton(
-                    "Cerrar temporalmente",
-                    icon=ft.Icons.LOCK,
-                    on_click=lambda evento: self.pedir_cierre(local),
-                ),
-            ],
-        )
-
-    def seccion_alertas_policia(self):
-        """(Autoridad) Bares abiertos que están ahora mismo en ROJO."""
-        controles = []
-        for local in self.app.local_controller.listar():
-            en_peligro = self.sensores.color_bar(local.codigo) == "rojo"
-            abierto = not self.vigilancia.cierre_activo(local.codigo)
-            if en_peligro and abierto:
-                controles.append(self.fila_alerta(local))
-        if not controles:
-            controles.append(ft.Text("Ningún bar abierto tiene niveles peligrosos ahora mismo."))
-        return self.seccion("Alertas de niveles peligrosos", controles, ft.Icons.WARNING)
-
-    def fila_reclamacion(self, cierre):
-        """(Autoridad) Una reclamación con los dos botones para valorarla."""
-        codigo = cierre["local"]
-        return ft.Column(
-            controls=[
-                ft.Text(f"{self.nombre_local(codigo)} ({codigo})", weight=ft.FontWeight.BOLD),
-                ft.Text(f"Motivo del cierre ({cierre['policia']}): {cierre['motivo']}", size=13),
-                ft.Text(f"Reclamación del propietario: {cierre['reclamacion']}", size=13),
-                ft.Row(
-                    controls=[
-                        ft.OutlinedButton(
-                            "Justificado (sigue cerrado)",
-                            on_click=lambda evento: self.pedir_resolucion(codigo, True),
-                        ),
-                        ft.FilledButton(
-                            "No justificado (reabrir)",
-                            on_click=lambda evento: self.pedir_resolucion(codigo, False),
-                        ),
-                    ]
-                ),
-            ]
-        )
-
-    def seccion_reclamaciones(self):
-        """(Autoridad) Reclamaciones de propietarios que hay que valorar."""
-        controles = []
-        for cierre in self.vigilancia.reclamaciones_pendientes():
-            controles.append(self.fila_reclamacion(cierre))
-        if not controles:
-            controles.append(ft.Text("No hay reclamaciones pendientes."))
-        return self.seccion("Reclamaciones pendientes", controles, ft.Icons.GAVEL)
-
-    def fila_cerrado(self, cierre):
-        """(Autoridad) Un bar cerrado con el botón para reabrirlo."""
-        codigo = cierre["local"]
-        return ft.Row(
-            wrap=True,
-            controls=[
-                ft.Icon(ft.Icons.LOCK),
-                ft.Text(f"{self.nombre_local(codigo)} ({codigo}) · desde {cierre['fecha']}"),
-                ft.TextButton(
-                    "Reabrir",
-                    icon=ft.Icons.LOCK_OPEN,
-                    on_click=lambda evento: self.pedir_reapertura(codigo),
-                ),
-            ],
-        )
-
-    def seccion_cerrados(self):
-        """(Autoridad) Bares cerrados ahora mismo, con el botón para reabrirlos."""
-        controles = []
-        for cierre in self.vigilancia.cerrados():
-            controles.append(self.fila_cerrado(cierre))
-        if not controles:
-            controles.append(ft.Text("No hay bares cerrados."))
-        return self.seccion("Bares cerrados temporalmente", controles, ft.Icons.LOCK)
-
-    def seccion_mi_local(self):
-        """(Propietario) Estado de su bar y, si está cerrado, la opción de reclamar."""
-        codigo = self.usuario.codigo_negocio
+    # ------------------------------------------------------------------
+    # VECINO
+    # ------------------------------------------------------------------
+    def seccion_mi_calle(self):
+        """Ruido y aforo de los bares de la calle del vecino."""
+        calle = self.usuario.calle
         controles = [
-            ft.Row(
-                controls=[
-                    icono_semaforo(self.sensores.color_bar(codigo)),
-                    ft.Text(f"{self.nombre_local(codigo)} ({codigo})", weight=ft.FontWeight.BOLD),
-                ]
-            )
+            ft.TextButton("Cambiar mi calle", icon=ft.Icons.EDIT_LOCATION, on_click=self.pedir_calle),
+        ]
+        bares = self.locales.de_calle(calle)
+        if not calle:
+            controles.append(ft.Text("Todavía no has indicado tu calle."))
+        elif not bares:
+            controles.append(ft.Text("No hay locales registrados en tu calle."))
+        for local in bares:
+            tarjetas = []
+            for tipo in TIPOS_VECINO:
+                tarjetas.append(tarjeta_sensor(self.app, local.codigo, tipo))
+            controles.append(ft.Text(f"{local.nombre} · {local.direccion}", size=16, weight=ft.FontWeight.BOLD))
+            controles.append(estado_bar(self.app, local.codigo))
+            controles.append(ft.ResponsiveRow(controls=tarjetas))
+        return seccion(f"Mi calle: {calle or 'sin indicar'}", controles, ft.Icons.HOME)
+
+    # ------------------------------------------------------------------
+    # PROPIETARIO
+    # ------------------------------------------------------------------
+    def seccion_mi_local(self, local):
+        """Estado del local, aforo y, si está cerrado, la opción de reclamar."""
+        codigo = local.codigo
+        personas = self.sensores.valor(codigo, "aforo")
+        controles = [
+            estado_bar(self.app, codigo),
+            ft.Text(f"Aforo: {personas} de {local.aforo} personas"),
+            # La barra se llena como máximo hasta 1 (aforo completo).
+            ft.ProgressBar(value=min(1, personas / local.aforo), bar_height=12),
+            fila_leds(self.app, codigo, 22),
+            ft.TextButton(
+                "Editar mi local", icon=ft.Icons.EDIT, on_click=lambda evento: self.app.ir_a_editar_local(local)
+            ),
         ]
         cierre = self.vigilancia.cierre_activo(codigo)
-        if not cierre:
-            controles.append(ft.Text("Tu local está abierto."))
-        else:
-            controles.append(etiqueta_cerrado())
+        if cierre:
             controles.append(ft.Text(f"Cerrado el {cierre['fecha']} por {cierre['policia']}."))
             controles.append(ft.Text(f"Incidencia escrita por la policía: {cierre['motivo']}"))
             if cierre["estado_reclamacion"] == "":
@@ -255,86 +222,215 @@ class PanelSensoresView:
         ultimo = self.vigilancia.ultimo_cierre(codigo)
         if not cierre and ultimo and ultimo["estado_reclamacion"] == "No justificado":
             controles.append(ft.Text(f"Tu última reclamación fue aceptada: {ultimo['respuesta']}"))
-        return self.seccion("Mi local", controles, ft.Icons.STOREFRONT)
+        return seccion(f"Mi local: {local.nombre}", controles, ft.Icons.STOREFRONT)
 
-    def seccion_bares(self):
-        """Todos los bares de la zona con su semáforo (lo ven todos los roles)."""
+    def secciones_propietario(self):
+        """Todo lo que ve el propietario de su local."""
+        local = self.locales.buscar(self.usuario.codigo_negocio)
+        if local is None:
+            return [ft.Text("Tu local ya no está registrado. Contacta con la Autoridad.")]
         tarjetas = []
-        for local in self.app.local_controller.listar():
-            tarjetas.append(self.tarjeta_bar(local))
-        if not tarjetas:
-            return ft.Text("Todavía no hay locales registrados.")
-        return ft.ResponsiveRow(controls=tarjetas)
+        for tipo in TIPOS_SENSOR:
+            tarjetas.append(tarjeta_sensor(self.app, local.codigo, tipo))
+        # El log incluye también sus cierres y reclamaciones anteriores.
+        incidencias = self.vigilancia.incidencias_de(local.codigo)[:MAXIMO_INCIDENCIAS]
+        return [
+            self.seccion_mi_local(local),
+            ft.ResponsiveRow(controls=tarjetas),
+            seccion("Incidencias de mi local", [tabla_incidencias(self.app, incidencias)], ft.Icons.HISTORY),
+        ]
+
+    # ------------------------------------------------------------------
+    # AUTORIDAD
+    # ------------------------------------------------------------------
+    def seccion_resumen(self):
+        """Cuántos bares hay de cada color, cuántos cerrados y cuántas reclamaciones."""
+        cuenta = {"verde": 0, "amarillo": 0, "rojo": 0}
+        for local in self.locales.listar():
+            color = self.sensores.color_bar(local.codigo)
+            cuenta[color] = cuenta[color] + 1
+        # (número, texto, icono) de cada casilla.
+        casillas = []
+        for color in COLORES:
+            casillas.append((cuenta[color], SIGNIFICADO[color], icono_semaforo(color, 20)))
+        casillas.append((len(self.vigilancia.cerrados()), "Cerrados", ft.Icon(ft.Icons.LOCK, size=20)))
+        casillas.append(
+            (len(self.vigilancia.reclamaciones_pendientes()), "Reclamaciones", ft.Icon(ft.Icons.GAVEL, size=20))
+        )
+        controles = []
+        for numero, texto, icono in casillas:
+            controles.append(
+                ft.Column(
+                    col={"xs": 6, "sm": 4, "md": 2},
+                    controls=[
+                        ft.Text(str(numero), size=28, weight=ft.FontWeight.BOLD),
+                        ft.Row(wrap=True, spacing=4, controls=[icono, ft.Text(texto, size=12)]),
+                    ],
+                )
+            )
+        return seccion("Resumen de la zona", [ft.ResponsiveRow(controls=controles)], ft.Icons.DASHBOARD)
+
+    def seccion_comparacion(self):
+        """Gráfico que compara un sensor en todos los bares."""
+        self.grafico = ft.Column()
+        self.tipo = desplegable("Sensor", NOMBRE_SENSOR, TIPOS_SENSOR[0], self.comparar)
+        self.comparar()
+        return seccion("Comparación de bares", [self.tipo, self.grafico], ft.Icons.BAR_CHART)
+
+    def comparar(self, evento=None):
+        """Vuelve a dibujar el gráfico con el sensor elegido."""
+        tipo = self.tipo.value
+        filas = []
+        for local in self.locales.listar():
+            valor = self.sensores.valor(local.codigo, tipo)
+            filas.append((local.nombre, valor, self.sensores.color_sensor(local.codigo, tipo, valor)))
+        # De mayor a menor valor (fila[1] es el valor).
+        filas.sort(key=lambda fila: fila[1], reverse=True)
+        self.grafico.controls = [ft.Text(f"Valor actual en {UNIDAD_SENSOR[tipo]}", size=12), grafico_barras(filas)]
+        if evento:
+            self.app.page.update()
+
+    def fila_alerta(self, local):
+        """Una línea de alerta: bar en rojo + botón para cerrarlo."""
+        return ft.Row(
+            wrap=True,
+            controls=[
+                icono_semaforo("rojo"),
+                ft.Text(f"{local.nombre} ({local.codigo})", weight=ft.FontWeight.BOLD),
+                ft.Text(self.sensores.texto_valores(local.codigo)),
+                ft.FilledButton(
+                    "Cerrar temporalmente",
+                    icon=ft.Icons.LOCK,
+                    on_click=lambda evento: pedir_cierre(self.app, local),
+                ),
+            ],
+        )
+
+    def seccion_alertas(self):
+        """Bares abiertos que están ahora mismo en ROJO."""
+        controles = []
+        for local in self.locales.listar():
+            en_peligro = self.sensores.color_bar(local.codigo) == "rojo"
+            if en_peligro and not self.vigilancia.cierre_activo(local.codigo):
+                controles.append(self.fila_alerta(local))
+        if not controles:
+            controles.append(ft.Text("Ningún bar abierto tiene niveles peligrosos ahora mismo."))
+        return seccion("Alertas de niveles peligrosos", controles, ft.Icons.WARNING)
+
+    def fila_reclamacion(self, cierre):
+        """Una reclamación con los dos botones para valorarla."""
+        codigo = cierre["local"]
+        return ft.Column(
+            controls=[
+                ft.Text(f"{self.locales.nombre_de(codigo)} ({codigo})", weight=ft.FontWeight.BOLD),
+                ft.Text(f"Motivo del cierre ({cierre['policia']}): {cierre['motivo']}", size=13),
+                ft.Text(f"Reclamación del propietario: {cierre['reclamacion']}", size=13),
+                ft.Row(
+                    wrap=True,
+                    controls=[
+                        ft.OutlinedButton(
+                            "Justificado (sigue cerrado)",
+                            on_click=lambda evento: self.pedir_resolucion(codigo, True),
+                        ),
+                        ft.FilledButton(
+                            "No justificado (reabrir)",
+                            on_click=lambda evento: self.pedir_resolucion(codigo, False),
+                        ),
+                    ],
+                ),
+            ]
+        )
+
+    def seccion_reclamaciones(self):
+        """Reclamaciones de propietarios que hay que valorar."""
+        controles = []
+        for cierre in self.vigilancia.reclamaciones_pendientes():
+            controles.append(self.fila_reclamacion(cierre))
+        if not controles:
+            controles.append(ft.Text("No hay reclamaciones pendientes."))
+        return seccion("Reclamaciones pendientes", controles, ft.Icons.GAVEL)
+
+    def fila_cerrado(self, cierre):
+        """Un bar cerrado con el botón para reabrirlo."""
+        codigo = cierre["local"]
+        return ft.Row(
+            wrap=True,
+            controls=[
+                etiqueta_cerrado(),
+                ft.Text(f"{self.locales.nombre_de(codigo)} ({codigo}) · desde {cierre['fecha']}"),
+                ft.TextButton(
+                    "Reabrir",
+                    icon=ft.Icons.LOCK_OPEN,
+                    on_click=lambda evento: pedir_reapertura(self.app, codigo),
+                ),
+            ],
+        )
+
+    def seccion_cerrados(self):
+        """Bares cerrados ahora mismo, con el botón para reabrirlos."""
+        controles = []
+        for cierre in self.vigilancia.cerrados():
+            controles.append(self.fila_cerrado(cierre))
+        if not controles:
+            controles.append(ft.Text("No hay bares cerrados."))
+        return seccion("Bares cerrados temporalmente", controles, ft.Icons.LOCK)
+
+    def seccion_incidencias(self):
+        """Log de incidencias de toda la zona, con filtro por tipo."""
+        opciones = {"": "Todas"}
+        for tipo in TIPOS_INCIDENCIA:
+            opciones[tipo] = tipo
+        self.log = ft.Column()
+        self.tipo_incidencia = desplegable("Tipo", opciones, "", self.filtrar_incidencias)
+        self.filtrar_incidencias()
+        return seccion("Incidencias de la zona", [self.tipo_incidencia, self.log], ft.Icons.HISTORY)
+
+    def filtrar_incidencias(self, evento=None):
+        """Vuelve a llenar el log con el tipo elegido."""
+        incidencias = self.vigilancia.todas_las_incidencias(self.tipo_incidencia.value or "", MAXIMO_INCIDENCIAS)
+        self.log.controls = [tabla_incidencias(self.app, incidencias)]
+        if evento:
+            self.app.page.update()
 
     # ------------------------------------------------------------------
     # ACCIONES DE LOS BOTONES
     # ------------------------------------------------------------------
-    def actualizar_medidas(self, evento):
-        """Toma medidas nuevas de todos los sensores y vuelve a dibujar el panel."""
-        self.app.actualizar_medidas()
-        self.app.recargar()
-
     def marcar_leidas(self, evento):
         self.vigilancia.marcar_leidas(self.usuario)
         self.app.recargar()
 
-    def pedir_cierre(self, local):
-        """(Autoridad) Pide el motivo y cierra el bar."""
-
-        # Esta función recibe el texto escrito en la ventanita.
-        def al_aceptar(motivo):
-            error = self.vigilancia.cerrar_local(self.usuario, local.codigo, motivo)
-            if not error:
-                # Al cerrar, el bar se vacía: sus sensores vuelven a valores normales.
-                self.sensores.volver_normal(local.codigo)
-            return error
-
+    def pedir_calle(self, evento):
+        """(Vecino) Pide el nombre de su calle."""
         ventana_texto(
             self.app,
-            f"Cerrar temporalmente {local.nombre}",
-            "Escribe la incidencia que justifica el cierre. El propietario la recibirá.",
-            "Cerrar local",
-            al_aceptar,
-        )
-
-    def pedir_reapertura(self, codigo):
-        """(Autoridad) Reabre un bar, con una nota opcional."""
-
-        def al_aceptar(nota):
-            return self.vigilancia.reabrir_local(self.usuario, codigo, nota)
-
-        ventana_texto(
-            self.app,
-            f"Reabrir {self.nombre_local(codigo)}",
-            "Puedes escribir una nota para el propietario (opcional).",
-            "Reabrir",
-            al_aceptar,
+            "Cambiar mi calle",
+            "Escribe el nombre de tu calle, sin el número. Ejemplo: Calle Ferraz.",
+            "Guardar",
+            lambda calle: self.app.login_controller.users.cambiar_calle(self.usuario, calle),
         )
 
     def pedir_resolucion(self, codigo, justificado):
         """(Autoridad) Valora una reclamación con una respuesta para el propietario."""
-
-        def al_aceptar(respuesta):
-            return self.vigilancia.resolver_reclamacion(self.usuario, codigo, justificado, respuesta)
-
         if justificado:
             titulo = "El cierre está justificado"
         else:
             titulo = "El cierre NO está justificado (se reabrirá el local)"
-        ventana_texto(self.app, titulo, "Escribe la respuesta para el propietario.", "Enviar", al_aceptar)
+        ventana_texto(
+            self.app,
+            titulo,
+            "Escribe la respuesta para el propietario.",
+            "Enviar",
+            lambda respuesta: self.vigilancia.resolver_reclamacion(self.usuario, codigo, justificado, respuesta),
+        )
 
     def pedir_reclamacion(self, codigo):
         """(Propietario) Escribe una reclamación contra el cierre de su bar."""
-
-        def al_aceptar(texto):
-            return self.vigilancia.reclamar(self.usuario, codigo, texto)
-
         ventana_texto(
             self.app,
             "Presentar reclamación",
             "Explica por qué crees que el cierre no está justificado. La policía la valorará.",
             "Enviar reclamación",
-            al_aceptar,
+            lambda texto: self.vigilancia.reclamar(self.usuario, codigo, texto),
         )
 
     # ------------------------------------------------------------------
@@ -342,37 +438,29 @@ class PanelSensoresView:
     # ------------------------------------------------------------------
     def construir(self):
         rol = self.usuario.rol
-        controles = [
-            ft.Row(
-                wrap=True,
-                controls=[
-                    ft.OutlinedButton("Cerrar sesión", on_click=self.app.ir_a_login),
-                    ft.FilledButton(TEXTO_BOTON_LOCALES[rol], icon=ft.Icons.STOREFRONT, on_click=self.app.ir_a_locales),
-                    ft.FilledButton("Actualizar medidas", icon=ft.Icons.REFRESH, on_click=self.actualizar_medidas),
-                ],
-            ),
-            ft.Text(f"¡Hola, {self.usuario.nombre}!", size=24, weight=ft.FontWeight.BOLD),
-            ft.Text(f"Rol: {rol}. {DESCRIPCION_ROL[rol]}"),
+        botones = [
+            ft.OutlinedButton("Cerrar sesión", on_click=self.app.ir_a_login),
+            ft.FilledButton(TEXTO_BOTON_LOCALES[rol], icon=ft.Icons.STOREFRONT, on_click=self.app.ir_a_locales),
+            ft.FilledButton("Actualizar medidas", icon=ft.Icons.REFRESH, on_click=self.app.medir_y_recargar),
         ]
-        # Los vecinos no reciben notificaciones; los demás sí.
-        if rol == "Autoridad":
-            controles.append(self.seccion_notificaciones())
-            controles.append(self.seccion_alertas_policia())
-            controles.append(self.seccion_reclamaciones())
-            controles.append(self.seccion_cerrados())
+        controles = [
+            cabecera(self.app, f"¡Hola, {self.usuario.nombre}!", botones),
+            ft.Text(DESCRIPCION_ROL[rol]),
+        ]
+        if rol == "Vecino":
+            controles.append(self.seccion_mi_calle())
         if rol == "Propietario":
             controles.append(self.seccion_notificaciones())
-            controles.append(self.seccion_mi_local())
-        controles.append(ft.Text("Bares de la zona", size=20, weight=ft.FontWeight.BOLD))
-        controles.append(
-            ft.Row(
-                wrap=True,
-                controls=[
-                    icono_semaforo("verde", 16), ft.Text("Todo correcto"),
-                    icono_semaforo("amarillo", 16), ft.Text("Precaución"),
-                    icono_semaforo("rojo", 16), ft.Text("Nivel peligroso"),
-                ],
-            )
-        )
+            controles = controles + self.secciones_propietario()
+        if rol == "Autoridad":
+            controles = controles + [
+                self.seccion_resumen(),
+                self.seccion_alertas(),
+                self.seccion_reclamaciones(),
+                self.seccion_cerrados(),
+                self.seccion_notificaciones(),
+                self.seccion_comparacion(),
+                self.seccion_incidencias(),
+            ]
         controles.append(self.seccion_bares())
         return ft.Column(expand=True, scroll=ft.ScrollMode.AUTO, controls=controles)

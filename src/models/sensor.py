@@ -1,41 +1,39 @@
 """MODELO: datos de los SENSORES y su HISTORIAL.
 
-Cada local (bar) tiene 3 sensores. Cada sensor se guarda en sensores.json
-como un diccionario así:
+Cada local (bar) tiene 5 sensores. Son dos tablas de la base de datos:
 
-    {"local": "NEG-001", "tipo": "temperatura", "valor": 23.4, "fecha": "2026-11-13 21:30"}
-
-Y cada medida antigua se guarda en historial_sensores.json igual:
-
-    {"local": "NEG-001", "tipo": "temperatura", "valor": 22.9, "fecha": "2026-11-13 20:30"}
-
-Los dos archivos se guardan en src/models, junto a usuarios.json y locales.json.
+    sensores -> qué sensores tiene cada local (local y tipo)
+    medidas  -> TODAS las medidas de cada sensor (valor y fecha). La última es su valor actual.
 """
-# Usamos las MISMAS funciones de leer/escribir JSON que el resto del proyecto.
-from src.models.archivo_json import escribir_json, leer_json
+# Las funciones de la base de datos que usa todo el proyecto.
+from src.models.base_datos import consultar, insertar
 
-# Nombres de los archivos.
-ARCHIVO_SENSORES = "sensores.json"
-ARCHIVO_HISTORIAL = "historial_sensores.json"
+# Los tipos de sensor. Para añadir otro: ponerlo aquí, en las tablas de abajo,
+# en RANGOS (simulador_sensores.py) y en ICONO_SENSOR (piezas_sensores.py).
+TIPOS_SENSOR = ["temperatura", "humedad", "calidad_aire", "ruido", "aforo"]
 
-# Los tres tipos de sensor.
-TIPOS_SENSOR = ["temperatura", "humedad", "calidad_aire"]
+# Los que interesan a los vecinos de la calle.
+TIPOS_VECINO = ["ruido", "aforo"]
 
 # Nombre que se ve en pantalla para cada tipo.
 NOMBRE_SENSOR = {
-    "temperatura": "Sensor de temperatura",
-    "humedad": "Sensor de humedad",
-    "calidad_aire": "Sensor de calidad del aire",
+    "temperatura": "Temperatura",
+    "humedad": "Humedad",
+    "calidad_aire": "Calidad del aire",
+    "ruido": "Ruido",
+    "aforo": "Aforo",
 }
 
 # Unidad de medida de cada tipo.
 UNIDAD_SENSOR = {
     "temperatura": "°C",
     "humedad": "%",
-    "calidad_aire": "ppm CO2",
+    "calidad_aire": "ppm",
+    "ruido": "dB",
+    "aforo": "personas",
 }
 
-# Color del diodo LED que enciende cada tipo cuando hay alerta.
+# Color del diodo LED que enciende cada tipo cuando hay alerta (ruido y aforo no tienen LED).
 LED_SENSOR = {
     "temperatura": "rojo",
     "humedad": "azul",
@@ -45,40 +43,55 @@ LED_SENSOR = {
 # ----------------------------------------------------------------------
 # UMBRALES: a partir de qué valor hay PRECAUCIÓN (amarillo) o PELIGRO (rojo).
 # Si hay que cambiar algún número, solo se cambia aquí.
+#   "precaucion" y "peligro"                -> se supera si el valor es MAYOR.
+#   "precaucion_minima" y "peligro_minimo"  -> se supera si el valor es MENOR.
+# El aforo va en % del aforo máximo de cada local.
+# El CO2 no tiene decimales: "más de 799" es lo mismo que "desde 800".
 # ----------------------------------------------------------------------
-# Temperatura (°C): peligro si pasa de 30; precaución si pasa de 27.
-TEMPERATURA_PELIGRO = 30
-TEMPERATURA_PRECAUCION = 27
-# Humedad (%): peligro por debajo de 30 o por encima de 70.
-HUMEDAD_PELIGRO_MINIMA = 30
-HUMEDAD_PELIGRO_MAXIMA = 70
-# Humedad (%): precaución por debajo de 35 o por encima de 65.
-HUMEDAD_PRECAUCION_MINIMA = 35
-HUMEDAD_PRECAUCION_MAXIMA = 65
-# Calidad del aire (ppm de CO2): desde 800 es "Moderada" y desde 1200 es "Mala" (peligro).
-CO2_MODERADO = 800
-CO2_MALO = 1200
+UMBRALES = {
+    "temperatura": {"precaucion": 27, "peligro": 30},
+    "humedad": {"precaucion": 65, "peligro": 70, "precaucion_minima": 35, "peligro_minimo": 30},
+    "calidad_aire": {"precaucion": 799, "peligro": 1199},
+    "ruido": {"precaucion": 65, "peligro": 80},
+    "aforo": {"precaucion": 80, "peligro": 100},
+}
 
-# Cuántas medidas antiguas se guardan como máximo en el historial (para que no crezca sin fin).
-MAXIMO_HISTORIAL = 1500
+# Nombre de la calidad del aire según el color de su semáforo.
+CALIDAD_AIRE = {"verde": "Buena", "amarillo": "Moderada", "rojo": "Mala"}
 
 
-def cargar_sensores():
-    """Devuelve la lista de sensores de todos los locales."""
-    return leer_json(ARCHIVO_SENSORES)
+def sensores_actuales(codigo=""):
+    """Los sensores de un local (o de todos) con su última medida: id, local, tipo, valor y fecha."""
+    return consultar(
+        """
+        SELECT s.id, s.local, s.tipo, m.valor, m.fecha
+        FROM sensores s
+        JOIN medidas m ON m.id = (SELECT MAX(id) FROM medidas WHERE sensor = s.id)
+        WHERE ? IN ('', s.local)
+        ORDER BY s.id
+        """,
+        (codigo,),
+    )
 
 
-def guardar_sensores(sensores):
-    """Guarda la lista de sensores."""
-    escribir_json(ARCHIVO_SENSORES, sensores)
+def historial_de(codigo, tipo, cantidad):
+    """Las últimas medidas de un sensor, de la más nueva a la más antigua."""
+    return consultar(
+        """
+        SELECT m.valor, m.fecha
+        FROM medidas m JOIN sensores s ON s.id = m.sensor
+        WHERE s.local = ? AND s.tipo = ?
+        ORDER BY m.id DESC LIMIT ?
+        """,
+        (codigo, tipo, cantidad),
+    )
 
 
-def cargar_historial():
-    """Devuelve todas las medidas antiguas (de la más antigua a la más nueva)."""
-    return leer_json(ARCHIVO_HISTORIAL)
+def insertar_sensor(codigo, tipo):
+    """Da un sensor nuevo a un local y devuelve su id."""
+    return insertar("sensores", {"local": codigo, "tipo": tipo})
 
 
-def guardar_historial(historial):
-    """Guarda el historial. Si es muy largo, borra las medidas más antiguas."""
-    # historial[-MAXIMO_HISTORIAL:] se queda solo con las últimas 1500 medidas.
-    escribir_json(ARCHIVO_HISTORIAL, historial[-MAXIMO_HISTORIAL:])
+def insertar_medida(id_sensor, valor, fecha):
+    """Guarda una medida de un sensor."""
+    insertar("medidas", {"sensor": id_sensor, "valor": valor, "fecha": fecha})

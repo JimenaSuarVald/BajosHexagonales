@@ -2,7 +2,7 @@
 
 Esta parte de la aplicación añade:
 
-1. **Sensores simulados en todos los bares** (temperatura, humedad y calidad del aire), guardados en JSON con su **historial**.
+1. **Sensores simulados en todos los bares** (temperatura, humedad, calidad del aire, ruido y aforo), guardados en la base de datos con su **historial** y sus **gráficos**.
 2. **Semáforo** en cada local: 🟢 verde, 🟡 amarillo o 🔴 rojo.
 3. **LEDs de alerta**: 🔴 rojo por temperatura, 🔵 azul por humedad y 🟢 verde por calidad del aire.
 4. **Ventilador**, que se enciende con más de 30 °C **y** el aire «Malo» a la vez.
@@ -28,9 +28,9 @@ Se abre la aplicación de siempre (con el mismo login y los mismos usuarios), co
 
 | Rol | Correo | Qué ver |
 |---|---|---|
-| Autoridad | `ayto@arguelles.es` | Alertas, cerrar bares, reclamaciones, bares cerrados |
-| Propietario | `bar@arguelles.es` (local `NEG-001`) | «Mi local», avisos de cierre, botón de reclamación |
-| Vecino | `vecino@arguelles.es` | Todos los bares con sus sensores |
+| Autoridad | `ayto@arguelles.es` | Resumen y comparación de la zona, alertas, cerrar bares, reclamaciones, incidencias |
+| Propietario | `bar@arguelles.es` (local `NEG-001`) | «Mi local», sus 5 sensores con gráficos, incidencias y botón de reclamación |
+| Vecino | `vecino@arguelles.es` | Ruido y aforo de los bares de su calle; semáforo de toda la zona |
 
 **Prueba completa paso a paso:**
 
@@ -45,92 +45,79 @@ Se abre la aplicación de siempre (con el mismo login y los mismos usuarios), co
 
 ## 2. Archivos
 
-Todos están en `src`, junto al resto del código, y **ninguno se llama igual que un archivo que ya existía**:
+Todos están en `src`, junto al resto del código:
 
 ```
-main.py                               Arranca AppSensores
+main.py                               Arranca App
 src/
-├── app_sensores.py                   AppSensores: la App de siempre + pantallas nuevas
-├── models/                           MODELO (datos y JSON)
-│   ├── sensor.py                     Sensores, historial y UMBRALES
+├── app.py                            Cambia de pantalla, toma medidas y recarga
+├── models/                           MODELO (datos y base de datos)
+│   ├── base_datos.py                 Base de datos: tablas y consultas
+│   ├── sensor.py                     Sensores, medidas y UMBRALES
 │   ├── simulador_sensores.py         Se inventa las medidas
 │   ├── vigilancia.py                 Incidencias, cierres y notificaciones
-│   ├── sensores.json                 Último valor de cada sensor (historial previo)
-│   ├── historial_sensores.json       Lecturas de las últimas 24 horas (historial previo)
-│   ├── incidencias.json              Log de incidencias (historial previo)
-│   └── notificaciones.json           Avisos (historial previo)
+│   └── sensores.json, historial_sensores.json, incidencias.json, notificaciones.json
+│                                     Datos iniciales (historial previo) que se copian a la base de datos
 ├── controllers/                      CONTROLADOR (reglas)
 │   ├── sensor_controller.py          Semáforo, LEDs, ventilador, medidas
 │   └── vigilancia_controller.py      Alertas, cierres, reclamaciones, notificaciones
 └── views/                            VISTA (pantallas)
-    ├── piezas_sensores.py            Piezas repetidas: semáforo, LED, cartel, ventanita
+    ├── piezas_sensores.py            Piezas repetidas: cabecera, semáforo, LED, gráficos, tablas, ventanitas
     ├── panel_sensores_view.py        Panel principal según el rol
     ├── bar_sensores_view.py          Detalle de un bar
-    └── locales_estado_view.py        Lista de locales de siempre + semáforo
+    └── locales_view.py               Lista de locales (CRUD) con su semáforo
 ```
 
-**Orden recomendado de lectura:** `models/sensor.py` → `models/simulador_sensores.py` → `models/vigilancia.py` → `controllers/sensor_controller.py` → `controllers/vigilancia_controller.py` → `app_sensores.py` → las vistas.
+**Orden recomendado de lectura:** `models/base_datos.py` → `models/sensor.py` → `models/simulador_sensores.py` → `models/vigilancia.py` → `controllers/sensor_controller.py` → `controllers/vigilancia_controller.py` → `app.py` → las vistas.
 
-### Cómo se une con el código que ya existía
-
-De lo que ya existía solo cambian dos líneas de `main.py` (ahora arranca `AppSensores` en vez de `App`). Lo nuevo **usa** lo que ya había:
-
-| Lo nuevo… | …usa lo que ya existía |
-|---|---|
-| Todos los modelos nuevos | `src/models/archivo_json.py` (`leer_json` / `escribir_json`) |
-| `sensor_controller.py` | `src/models/local.py` (lista de locales: cada local tiene sensores) |
-| `AppSensores` | **Hereda** de `App` (`src/app.py`): login, registro y formularios de locales |
-| `LocalesEstadoView` | **Hereda** de `LocalesView`: mismos botones Editar/Eliminar, más el semáforo |
-| `panel_sensores_view.py` | Textos de `src/views/main_view.py` |
-| Permisos | Los roles de `usuario.py` (`Autoridad`, `Propietario`, `Vecino`) |
-
-*Heredar* (`class AppSensores(App):`) significa «haz todo lo que hace `App` y cambia solo lo que yo diga». `super()` llama a la versión original.
-
-Si se crea un local nuevo con el CRUD, al pulsar *Actualizar medidas* se le crean automáticamente sus 3 sensores. Si se elimina, sus sensores desaparecen.
+Al crear un local con el CRUD se le dan sus 5 sensores en ese momento. Al eliminarlo se borran también sus sensores, historial, incidencias, cierres y avisos.
 
 ---
 
-## 3. Los archivos JSON (en `src/models`)
+## 3. Los datos (base de datos)
 
-Todos los datos son **listas de diccionarios**, como `locales.json`.
+Todo está en la base de datos (ver el apartado 5 de `GUIA_DEL_CODIGO.md`).
 
-| Archivo | Qué guarda | Ejemplo de un elemento |
-|---|---|---|
-| `sensores.json` | El **último** valor de cada sensor | `{"local": "NEG-001", "tipo": "temperatura", "valor": 23.4, "fecha": "2026-11-13 21:30"}` |
-| `historial_sensores.json` | **Todas** las medidas anteriores (máx. 1500) | igual que el anterior |
-| `incidencias.json` | El **log** de cada bar | `{"local": "NEG-001", "fecha": "...", "tipo": "Cierre temporal", "autor": "Ayuntamiento Demo (POL-0001)", "descripcion": "..."}` |
-| `cierres.json` | Los cierres de la policía y su reclamación | `{"local": "NEG-001", "fecha": "...", "policia": "...", "motivo": "...", "activo": true, "reclamacion": "...", "estado_reclamacion": "Pendiente", "respuesta": ""}` |
-| `notificaciones.json` | Avisos para la policía o para un propietario | `{"para": "Autoridad", "fecha": "...", "titulo": "...", "mensaje": "...", "leida": false}` |
+| Tabla | Qué guarda |
+|---|---|
+| `sensores` | Los 5 sensores de cada local |
+| `medidas` | **Todas** las medidas de cada sensor. La última es su valor actual |
+| `incidencias` | El **log** de cada bar: fecha, tipo, autor y descripción |
+| `cierres` | Los cierres de la policía: motivo, si sigue activo, la reclamación, su estado y la respuesta |
+| `notificaciones` | Avisos para un propietario (`local` = su código) o para la policía (`local` vacío) |
 
-- **Historial previo:** el proyecto ya trae `sensores.json`, `historial_sensores.json` (75 lecturas inventadas del Bar Demo: una por hora de las últimas 24 horas de cada sensor), `incidencias.json` (una alerta a medianoche y su normalización) y `notificaciones.json` (el aviso a la policía). Cada medida nueva se añade a estos archivos.
-- Un bar que no tenga sensores (por ejemplo, uno creado con el CRUD) recibe automáticamente su **historial de 24 horas** (una medida por hora). Entre las 23:00 y la 01:59 el bar está lleno, así que en esas horas salen valores peligrosos.
-- `cierres.json` no viene hecho: se crea solo cuando la policía cierra un bar.
-- En `notificaciones.json`, `"para"` vale `"Autoridad"` (lo ven todos los policías) o un código de local como `"NEG-001"` (lo ve su propietario).
+- **Historial previo:** al crear la base de datos se copian los JSON iniciales. Incluyen 25 medidas, una por hora, de cada uno de los 5 sensores del Bar Demo (del 12 al 13 de noviembre). También incluyen una alerta a medianoche con su normalización y el aviso a la policía.
+- Un bar sin sensores (por ejemplo, uno creado con el CRUD) recibe al momento sus 5 sensores con un **historial de 24 horas** (una medida por hora). Entre las 23:00 y la 01:59 el bar está lleno, así que en esas horas salen valores peligrosos.
 
 ---
 
 ## 4. Reglas: semáforo, LEDs y ventilador (`sensor_controller.py`)
 
-Todos los números están al principio de `models/sensor.py`. Si hay que cambiarlos, solo se cambian ahí.
+Todos los números están en `UMBRALES`, al principio de `models/sensor.py`. Si hay que cambiarlos, solo se cambian ahí.
 
 | Sensor | 🟢 Verde | 🟡 Amarillo (precaución) | 🔴 Rojo (peligro) | LED |
 |---|---|---|---|---|
 | Temperatura | hasta 27 °C | de 27 a 30 °C | **más de 30 °C** | 🔴 rojo |
 | Humedad | 35 % a 65 % | 30–35 % o 65–70 % | **menos de 30 % o más de 70 %** | 🔵 azul |
 | Calidad del aire (CO2) | «Buena»: menos de 800 ppm | «Moderada»: 800–1199 ppm | **«Mala»: 1200 ppm o más** | 🟢 verde |
+| Ruido | hasta 65 dB | de 65 a 80 dB | **más de 80 dB** | — |
+| Aforo | hasta el 80 % del máximo del local | del 80 al 100 % | **más del 100 %** | — |
 
-- **Semáforo del bar** = el peor color de sus 3 sensores.
+- **Semáforo del bar** = el peor color de sus 5 sensores.
 - **LED**: se enciende cuando su sensor está en rojo.
 - **Ventilador**: se enciende con temperatura > 30 °C **y** aire «Mala» (las dos cosas a la vez).
 
 | Función | Qué devuelve |
 |---|---|
-| `color_sensor(tipo, valor)` | `"verde"`, `"amarillo"` o `"rojo"` |
+| `color_sensor(codigo, tipo, valor)` | `"verde"`, `"amarillo"` o `"rojo"` |
 | `color_bar(codigo)` | El color del bar |
 | `leds(codigo)` | `{"rojo": True, "azul": False, "verde": True}` |
 | `ventilador(codigo)` | `True` o `False` |
 | `medir_todos()` | Toma una medida nueva en todos los bares |
-| `forzar_alerta(codigo)` / `volver_normal(codigo)` | Hace que las próximas medidas de ese bar suban a peligro o vuelvan a lo normal |
+| `limites(codigo, tipo)` | Los umbrales del sensor (los del aforo, en personas de ese local) |
+| `historial_de(codigo, tipo, cantidad)` / `estadisticas(medidas)` | Datos de los gráficos y su mínimo, media y máximo |
+| `simular(usuario, codigo, escenario)` | Solo Autoridad. `"alerta"` o `"normal"`: hacia dónde van las próximas medidas |
+| `preparar_sensores()` (función suelta) | Da a cada bar los sensores que le falten |
 
 Las medidas **no cambian solas**: cambian al iniciar sesión y cada vez que se pulsa **Actualizar medidas**. Los valores van cambiando poco a poco, como en un sensor real.
 
@@ -147,7 +134,8 @@ Igual que `LocalController`, las funciones que cambian algo devuelven `""` si ha
 | `reabrir_local(usuario, codigo, nota)` | Autoridad | Reabre el bar y avisa al propietario. |
 | `reclamar(usuario, codigo, texto)` | Propietario de ese bar | Una reclamación por cierre. Queda «Pendiente» y **avisa a la policía**. |
 | `resolver_reclamacion(usuario, codigo, justificado, respuesta)` | Autoridad | **Justificado**: el bar sigue cerrado. **No justificado**: el bar se reabre. El propietario recibe la respuesta. |
-| `incidencias_de(codigo)` | Todos | El log del bar, lo más nuevo primero. |
+| `incidencias_de(codigo)` | Autoridad y Propietario de ese bar | El log del bar, lo más nuevo primero. |
+| `todas_las_incidencias(tipo, cantidad)` | Autoridad | El log de toda la zona. |
 | `notificaciones_de(usuario)` / `marcar_leidas(usuario)` | Autoridad y Propietario | Sus avisos. |
 
 Recorrido de un cierre con reclamación:
@@ -170,12 +158,15 @@ Policía: "No justificado" ───► se reabre ─────┴► log "Res
 
 | Pantalla | Archivo | Quién | Qué tiene |
 |---|---|---|---|
-| Panel principal | `panel_sensores_view.py` | Todos | Botones *Gestionar locales* y *Actualizar medidas*; tarjetas de **todos los bares** con semáforo, valores, LEDs y ventilador |
-| | | Autoridad | + Notificaciones, **Alertas de niveles peligrosos** (botón *Cerrar temporalmente*), **Reclamaciones pendientes**, **Bares cerrados** (botón *Reabrir*) |
-| | | Propietario | + Notificaciones y **Mi local** (motivo del cierre y botón *Presentar reclamación*) |
-| Detalle de un bar | `bar_sensores_view.py` | Todos | LEDs, ventilador, los 3 sensores con su historial, **log de incidencias** y simulador de pruebas. La policía también tiene aquí *Cerrar* y *Reabrir* |
-| Lista de locales | `locales_estado_view.py` | Todos | La de siempre (CRUD) + semáforo, cartel de cerrado y botón *Ver sensores* |
+| Panel principal | `panel_sensores_view.py` | Todos | *Actualizar medidas* y lista de bares con semáforo, buscador y filtro |
+| | | Vecino | + **Mi calle**: ruido y aforo (con gráfico) de los bares de su calle |
+| | | Propietario | + Notificaciones, **Mi local** (aforo, cierre y reclamación), sus 5 sensores con gráfico e incidencias |
+| | | Autoridad | + **Resumen de la zona**, alertas, reclamaciones, bares cerrados, notificaciones, **comparación de bares** e incidencias de la zona |
+| Detalle de un bar | `bar_sensores_view.py` | Autoridad y Propietario de ese bar | LEDs, ventilador, los 5 sensores con gráfico y tabla, y log. Solo la Autoridad: *Cerrar*, *Reabrir* y simulador |
+| Lista de locales | `locales_view.py` | Todos | CRUD + semáforo y cartel de cerrado. *Ver sensores*, solo si tiene permiso |
+
+Los gráficos (`grafico_lineas` y `grafico_barras`, en `piezas_sensores.py`) se dibujan con Flet, sin instalar nada más.
 
 `piezas_sensores.py` tiene `ventana_texto(...)`: la ventanita donde se escribe el motivo, la reclamación o la respuesta. Si el controlador devuelve un error (por ejemplo, un motivo demasiado corto), lo muestra en rojo y la ventana no se cierra.
 
-`AppSensores.recargar()` vuelve a dibujar la pantalla que se está viendo después de cada acción.
+`App.recargar()` vuelve a dibujar la pantalla que se está viendo después de cada acción.

@@ -448,5 +448,305 @@
     "tipo": "calidad_aire",
     "valor": 500,
     "fecha": "2026-11-13 17:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 47.0,
+    "fecha": "2026-11-12 17:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 53.5,
+    "fecha": "2026-11-12 18:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 53.7,
+    "fecha": "2026-11-12 19:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 59.6,
+    "fecha": "2026-11-12 20:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 46.7,
+    "fecha": "2026-11-12 21:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 48.8,
+    "fecha": "2026-11-12 22:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 91.2,
+    "fecha": "2026-11-12 23:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 90.7,
+    "fecha": "2026-11-13 00:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 93.4,
+    "fecha": "2026-11-13 01:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 54.3,
+    "fecha": "2026-11-13 02:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 57.4,
+    "fecha": "2026-11-13 03:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 58.1,
+    "fecha": "2026-11-13 04:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 57.8,
+    "fecha": "2026-11-13 05:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 55.0,
+    "fecha": "2026-11-13 06:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 49.1,
+    "fecha": "2026-11-13 07:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 55.4,
+    "fecha": "2026-11-13 08:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 46.9,
+    "fecha": "2026-11-13 09:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 58.9,
+    "fecha": "2026-11-13 10:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 52.6,
+    "fecha": "2026-11-13 11:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 58.9,
+    "fecha": "2026-11-13 12:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 56.6,
+    "fecha": "2026-11-13 13:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 56.5,
+    "fecha": "2026-11-13 14:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 48.6,
+    "fecha": "2026-11-13 15:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 49.3,
+    "fecha": "2026-11-13 16:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "ruido",
+    "valor": 61.7,
+    "fecha": "2026-11-13 17:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 53,
+    "fecha": "2026-11-12 17:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 47,
+    "fecha": "2026-11-12 18:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 56,
+    "fecha": "2026-11-12 19:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 35,
+    "fecha": "2026-11-12 20:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 15,
+    "fecha": "2026-11-12 21:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 27,
+    "fecha": "2026-11-12 22:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 90,
+    "fecha": "2026-11-12 23:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 87,
+    "fecha": "2026-11-13 00:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 89,
+    "fecha": "2026-11-13 01:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 51,
+    "fecha": "2026-11-13 02:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 43,
+    "fecha": "2026-11-13 03:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 37,
+    "fecha": "2026-11-13 04:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 13,
+    "fecha": "2026-11-13 05:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 43,
+    "fecha": "2026-11-13 06:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 28,
+    "fecha": "2026-11-13 07:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 31,
+    "fecha": "2026-11-13 08:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 30,
+    "fecha": "2026-11-13 09:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 38,
+    "fecha": "2026-11-13 10:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 34,
+    "fecha": "2026-11-13 11:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 17,
+    "fecha": "2026-11-13 12:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 34,
+    "fecha": "2026-11-13 13:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 45,
+    "fecha": "2026-11-13 14:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 38,
+    "fecha": "2026-11-13 15:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 34,
+    "fecha": "2026-11-13 16:51"
+  },
+  {
+    "local": "NEG-001",
+    "tipo": "aforo",
+    "valor": 52,
+    "fecha": "2026-11-13 17:51"
   }
 ]

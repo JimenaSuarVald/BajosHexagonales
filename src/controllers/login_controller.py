@@ -12,22 +12,25 @@ from src.controllers.user_controller import UserController
 
 class LoginController:
     def __init__(self):
-        # Guardamos un controlador de usuarios y otro de locales para usarlos después.
-        self.users = UserController()
+        # Guardamos un controlador de locales y otro de usuarios para usarlos después.
+        # Primero los locales: el propietario de prueba necesita que exista su local.
         self.locales = LocalController()
+        self.users = UserController()
 
     def registrar(self, nombre, email, password, confirmar, rol, codigo):
         """Da de alta a un usuario nuevo.
 
         "codigo" es el código de negocio (si el rol es Propietario) o el
-        ID policial (si el rol es Autoridad). Para Vecino se ignora.
+        ID policial (si el rol es Autoridad). Para Vecino es su calle.
         """
         # strip() quita los espacios sobrantes al principio y al final.
         nombre = nombre.strip()
         # lower() pasa el correo a minúsculas para que "Ana@x.es" y "ana@x.es" sean iguales.
         email = email.strip().lower()
+        # La calle del vecino se guarda tal como la ha escrito.
+        calle = codigo.strip()
         # upper() pasa el código a mayúsculas para que "neg-001" sirva igual que "NEG-001".
-        codigo = codigo.strip().upper()
+        codigo = calle.upper()
 
         # --- Comprobaciones comunes a todos los roles ---
         # "not nombre" es verdad cuando el nombre está vacío.
@@ -53,6 +56,14 @@ class LoginController:
         codigo_negocio = ""
         id_policial = ""
 
+        # --- Comprobaciones especiales del Vecino ---
+        if rol == "Vecino":
+            if not calle:
+                return None, "Los vecinos deben indicar su calle."
+        else:
+            # Los demás roles no tienen calle.
+            calle = ""
+
         # --- Comprobaciones especiales del Propietario ---
         if rol == "Propietario":
             # Es obligatorio escribir el código de negocio.
@@ -72,7 +83,7 @@ class LoginController:
             # Es obligatorio escribir el ID policial.
             if not codigo:
                 return None, "La autoridad debe introducir su ID de identificación policial."
-            # El ID tiene que estar en la lista oficial (ids_policiales.json).
+            # El ID tiene que estar en la lista oficial (tabla ids_policiales).
             if not self.users.id_policial_valido(codigo):
                 return None, "Ese ID policial no es válido."
             # Un mismo ID no se puede usar para dos cuentas.
@@ -82,7 +93,7 @@ class LoginController:
             id_policial = codigo
 
         # Si hemos llegado aquí, todo está bien: creamos el usuario y no hay error ("").
-        usuario = self.users.crear_usuario(nombre, email, password, rol, codigo_negocio, id_policial)
+        usuario = self.users.crear_usuario(nombre, email, password, rol, codigo_negocio, id_policial, calle)
         return usuario, ""
 
     def autenticar(self, email, password):
