@@ -1,0 +1,27 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- Entornos virtuales ---
+.venv/
+venv/
+env/
+
+# --- Datos generados en tiempo de ejecución ---
+# usuarios.json y locales.json se crean automáticamente al arrancar la app
+# (con datos demo). No se versionan para no subir datos/credenciales.
+# Ver usuarios.example.json y locales.example.json.
+# (ids_policiales.json SÍ se versiona: es la lista oficial de IDs válidos.)
+src/models/usuarios.json
+src/models/locales.json
+
+# --- IDE ---
+.idea/
+.vscode/
+*.iml
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
